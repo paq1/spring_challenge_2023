@@ -2,7 +2,10 @@ use std::cell::Cell;
 use std::io;
 use crate::helpers::*;
 
-use crate::models::Cellule;
+use behaviors::basic_ia::BasicIA;
+use crate::core::behaviors::CanBuildActions;
+
+use crate::models::{AllData, Cellule};
 
 macro_rules! parse_input {
     ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
@@ -11,13 +14,16 @@ macro_rules! parse_input {
 fn main() {
 
     let cellules = load_cellules();
+    let nombre_de_cellules = cellules.len();
     let number_of_bases = load_nombre_de_bases();
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
+    let my_bot = BasicIA {};
+
     // game loop
     loop {
-        for i in 0..cellules.len() as usize {
+        for i in 0..nombre_de_cellules as usize {
             let mut input_line = String::new();
             io::stdin().read_line(&mut input_line).unwrap();
             let inputs = input_line.split(" ").collect::<Vec<_>>();
@@ -27,13 +33,62 @@ fn main() {
         }
 
         // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
-        println!("WAIT");
+
+        let all_data = AllData {
+            cellules: cellules.clone(),
+            my_base_index,
+            opp_base_index
+        };
+
+        my_bot.execute_actions(&all_data);
         // fixme voir pourquoi on a un warning dans la console println!("MESSAGE hello world");
     }
 }
 
+mod behaviors {
+
+    pub mod basic_ia {
+        use crate::core::behaviors::CanBuildActions;
+        use crate::models::AllData;
+
+        pub struct BasicIA;
+
+        impl CanBuildActions for BasicIA {
+            fn build_actions(&self, all_data: &AllData) -> Vec<String> {
+                vec![
+                    "WAIT".to_string()
+                ]
+            }
+        }
+    }
+}
+
+mod core {
+    pub mod behaviors {
+        use crate::models::AllData;
+
+        pub trait CanBuildActions {
+            fn build_actions(&self, all_data: &AllData) -> Vec<String>;
+
+            fn execute_actions(&self, all_data: &AllData) {
+                self.build_actions(all_data)
+                    .into_iter()
+                    .for_each(|action| println!("{}", action))
+            }
+        }
+
+    }
+}
 
 mod models {
+
+    pub struct AllData {
+        pub cellules: Vec<Cellule>,
+        pub my_base_index: i32,
+        pub opp_base_index: i32,
+    }
+
+    #[derive(Clone)]
     pub struct Cellule {
         pub r#type: i32,
         pub identifiant: i32,
@@ -42,6 +97,26 @@ mod models {
 }
 
 mod helpers {
+
+
+    trait CanSort<T> {
+        fn sort_immut(&self) -> T;
+    }
+
+    pub mod vec {
+        use crate::helpers::CanSort;
+        use crate::models::Cellule;
+
+        impl CanSort<Vec<Cellule>> for Vec<Cellule> {
+            fn sort_immut(&self) -> Vec<Cellule> {
+                let mut cloned = self.clone();
+                cloned.sort_by(|cellule1, cellule2| {
+                    cellule1.nombre_de_crystal.cmp(&cellule2.nombre_de_crystal)
+                });
+                cloned.into()
+            }
+        }
+    }
 
     use std::io;
     use crate::models::Cellule;
