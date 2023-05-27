@@ -13,8 +13,8 @@ macro_rules! parse_input {
 
 fn main() {
 
-    let cellules = load_cellules();
-    let nombre_de_cellules = cellules.len();
+    let initial_cellules = load_cellules();
+    let nombre_de_cellules = initial_cellules.len();
     let number_of_bases = load_nombre_de_bases();
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
@@ -35,7 +35,7 @@ fn main() {
         // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
 
         let all_data = AllData {
-            cellules: cellules.clone(),
+            cellules: initial_cellules.clone(),
             my_base_index,
             opp_base_index
         };
@@ -92,7 +92,8 @@ mod models {
     pub struct Cellule {
         pub r#type: i32,
         pub identifiant: i32,
-        pub nombre_de_crystal: i32
+        pub nombre_de_crystal: i32,
+        pub nombre_insectes: Option<i32>
     }
 }
 
@@ -164,9 +165,15 @@ mod helpers {
                 Cellule {
                     r#type: _type,
                     identifiant: index,
-                    nombre_de_crystal: initial_resources
+                    nombre_de_crystal: initial_resources,
+                    nombre_insectes: None
                 }
             })
             .collect::<Vec<_>>()
+    }
+
+    pub fn update_cellules(initial_cellules: &Vec<Cellule>) -> Vec<Cellule> {
+        // todo update
+        vec![]
     }
 }
