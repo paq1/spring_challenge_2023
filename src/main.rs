@@ -18,7 +18,7 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    let my_bot = BasicIA {};
+    let mut my_bot = BasicIA { current_target:  None };
 
     // game loop
     loop {
@@ -37,17 +37,52 @@ fn main() {
 
 mod behaviors {
 
+    /*
+    algo basic qui met une LINE entre la base allié et la meilleure cellule
+     */
     pub mod basic_ia {
         use crate::core::behaviors::CanBuildActions;
-        use crate::models::AllData;
+        use crate::helpers::CanSort;
+        use crate::models::{AllData, Cellule};
 
-        pub struct BasicIA;
+        pub struct BasicIA {
+            pub current_target: Option<i32>
+        }
 
         impl CanBuildActions for BasicIA {
-            fn build_actions(&self, all_data: &AllData) -> Vec<String> {
+            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+                let sorted_cellules = all_data
+                    .cellules.clone()
+                    .into_iter()
+                    .filter(|cellule| cellule.nombre_de_crystal > 0)
+                    .collect::<Vec<_>>()
+                    .sort_immut();
+
+                self.update_target(&sorted_cellules);
+
+                let poid = 1;
+                let action = format!(
+                    "LINE {} {} {}",
+                    all_data.my_base_index,
+                    self.current_target.unwrap_or(1),
+                    poid
+                );
+
                 vec![
-                    "WAIT".to_string()
+                    action
                 ]
+            }
+        }
+
+        impl BasicIA {
+            fn update_target(&mut self, cellules_sorted: &Vec<Cellule>) {
+                let target_exist = cellules_sorted.iter()
+                    .find(|cellule| cellule.identifiant == self.current_target.unwrap_or(-1))
+                    .is_some();
+
+                if (!target_exist) {
+                    self.current_target = cellules_sorted.first().map(|cellule| cellule.identifiant)
+                }
             }
         }
     }
@@ -58,9 +93,9 @@ mod core {
         use crate::models::AllData;
 
         pub trait CanBuildActions {
-            fn build_actions(&self, all_data: &AllData) -> Vec<String>;
+            fn build_actions(&mut self, all_data: &AllData) -> Vec<String>;
 
-            fn execute_actions(&self, all_data: &AllData) {
+            fn execute_actions(&mut self, all_data: &AllData) {
                 self.build_actions(all_data)
                     .into_iter()
                     .for_each(|action| println!("{}", action))
@@ -91,7 +126,7 @@ mod models {
 mod helpers {
 
 
-    trait CanSort<T> {
+    pub trait CanSort<T> {
         fn sort_immut(&self) -> T;
     }
 
@@ -105,6 +140,7 @@ mod helpers {
                 cloned.sort_by(|cellule1, cellule2| {
                     cellule1.nombre_de_crystal.cmp(&cellule2.nombre_de_crystal)
                 });
+                cloned.reverse();
                 cloned.into()
             }
         }
