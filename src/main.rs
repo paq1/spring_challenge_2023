@@ -195,7 +195,8 @@ mod models {
         pub identifiant: i32,
         pub nombre_de_crystal: i32,
         pub nombre_insectes: Option<i32>,
-        pub nombre_insectes_enemy: Option<i32>
+        pub nombre_insectes_enemy: Option<i32>,
+        pub voisins: Vec<i32>
     }
 }
 
@@ -270,7 +271,15 @@ mod helpers {
                     identifiant: index,
                     nombre_de_crystal: initial_resources,
                     nombre_insectes: None,
-                    nombre_insectes_enemy: None
+                    nombre_insectes_enemy: None,
+                    voisins: vec![
+                        neigh_0,
+                        neigh_1,
+                        neigh_2,
+                        neigh_3,
+                        neigh_4,
+                        neigh_5
+                    ]
                 }
             })
             .collect::<Vec<_>>()
@@ -297,7 +306,8 @@ mod helpers {
                     identifiant: initial_cellule.identifiant,
                     nombre_de_crystal: resources,
                     nombre_insectes: Some(my_ants),
-                    nombre_insectes_enemy: Some(opp_ants)
+                    nombre_insectes_enemy: Some(opp_ants),
+                    voisins: initial_cellule.voisins.clone()
                 }
             })
             .collect::<Vec<_>>()
