@@ -3,6 +3,7 @@ use std::io;
 use crate::helpers::*;
 
 use behaviors::basic_ia::BasicIA;
+use crate::behaviors::basic_ia_with_eggs_first::BasicIAWithEggsFirst;
 use crate::core::behaviors::CanBuildActions;
 
 use crate::models::{AllData, Cellule};
@@ -18,17 +19,22 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    let mut my_bot = BasicIA { current_target:  None };
+    let mut my_bot = BasicIAWithEggsFirst { current_target:  None };
+
+    let mut index_tour = 0;
 
     // game loop
     loop {
+        index_tour += 1;
+
         // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
         let updated_cellules = update_cellules(&initial_cellules);
 
         let all_data = AllData {
             cellules: updated_cellules,
             my_base_index,
-            opp_base_index
+            opp_base_index,
+            tour_actuel: index_tour
         };
 
         my_bot.execute_actions(&all_data);
@@ -86,6 +92,76 @@ mod behaviors {
             }
         }
     }
+
+    /*
+    algo basic qui met une LINE entre la base allié et la meilleure cellule
+     */
+    pub mod basic_ia_with_eggs_first {
+        use crate::core::behaviors::CanBuildActions;
+        use crate::helpers::CanSort;
+        use crate::models::{AllData, Cellule};
+
+        pub struct BasicIAWithEggsFirst {
+            pub current_target: Option<i32>
+        }
+
+        impl CanBuildActions for BasicIAWithEggsFirst {
+            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+                let sorted_cellules_by_crystal = all_data
+                    .cellules.clone()
+                    .into_iter()
+                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 2)
+                    .collect::<Vec<_>>()
+                    .sort_immut();
+
+                let sorted_cellules_by_eggs = all_data
+                    .cellules.clone()
+                    .into_iter()
+                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 1)
+                    .collect::<Vec<_>>()
+                    .sort_immut();
+
+                if all_data.tour_actuel < 7 {
+
+                    let best_eggs = sorted_cellules_by_eggs.first().unwrap();
+
+                    let action = format!(
+                        "LINE {} {} {}",
+                        all_data.my_base_index,
+                        best_eggs.identifiant,
+                        1
+                    );
+                    vec![action]
+                } else {
+                    sorted_cellules_by_crystal
+                        .into_iter()
+                        .map(|cellule| {
+                            let poid = 2;
+                            format!(
+                                "LINE {} {} {}",
+                                all_data.my_base_index,
+                                cellule.identifiant,
+                                poid
+                            )
+                        }).collect::<Vec<_>>()
+                }
+            }
+        }
+
+        impl BasicIAWithEggsFirst {
+            fn update_target(&mut self, cellules_sorted: &Vec<Cellule>) {
+                let target_exist = cellules_sorted.iter()
+                    .find(|cellule| cellule.identifiant == self.current_target.unwrap_or(-1))
+                    .is_some();
+
+                if (!target_exist) {
+                    self.current_target = cellules_sorted.first().map(|cellule| cellule.identifiant)
+                }
+            }
+        }
+    }
+
+
 }
 
 mod core {
@@ -96,9 +172,8 @@ mod core {
             fn build_actions(&mut self, all_data: &AllData) -> Vec<String>;
 
             fn execute_actions(&mut self, all_data: &AllData) {
-                self.build_actions(all_data)
-                    .into_iter()
-                    .for_each(|action| println!("{}", action))
+                let actions = self.build_actions(all_data).join(";");
+                println!("{}", actions);
             }
         }
 
@@ -111,6 +186,7 @@ mod models {
         pub cellules: Vec<Cellule>,
         pub my_base_index: i32,
         pub opp_base_index: i32,
+        pub tour_actuel: i32
     }
 
     #[derive(Clone)]
