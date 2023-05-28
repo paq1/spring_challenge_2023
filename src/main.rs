@@ -14,8 +14,7 @@ macro_rules! parse_input {
 fn main() {
 
     let initial_cellules = load_cellules();
-    let nombre_de_cellules = initial_cellules.len();
-    let number_of_bases = load_nombre_de_bases();
+    let _ = load_nombre_de_bases();
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
@@ -23,25 +22,16 @@ fn main() {
 
     // game loop
     loop {
-        for i in 0..nombre_de_cellules as usize {
-            let mut input_line = String::new();
-            io::stdin().read_line(&mut input_line).unwrap();
-            let inputs = input_line.split(" ").collect::<Vec<_>>();
-            let resources = parse_input!(inputs[0], i32); // the current amount of eggs/crystals on this cell
-            let my_ants = parse_input!(inputs[1], i32); // the amount of your ants on this cell
-            let opp_ants = parse_input!(inputs[2], i32); // the amount of opponent ants on this cell
-        }
-
         // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
+        let updated_cellules = update_cellules(&initial_cellules);
 
         let all_data = AllData {
-            cellules: initial_cellules.clone(),
+            cellules: updated_cellules,
             my_base_index,
             opp_base_index
         };
 
         my_bot.execute_actions(&all_data);
-        // fixme voir pourquoi on a un warning dans la console println!("MESSAGE hello world");
     }
 }
 
@@ -93,7 +83,8 @@ mod models {
         pub r#type: i32,
         pub identifiant: i32,
         pub nombre_de_crystal: i32,
-        pub nombre_insectes: Option<i32>
+        pub nombre_insectes: Option<i32>,
+        pub nombre_insectes_enemy: Option<i32>
     }
 }
 
@@ -166,14 +157,37 @@ mod helpers {
                     r#type: _type,
                     identifiant: index,
                     nombre_de_crystal: initial_resources,
-                    nombre_insectes: None
+                    nombre_insectes: None,
+                    nombre_insectes_enemy: None
                 }
             })
             .collect::<Vec<_>>()
     }
 
     pub fn update_cellules(initial_cellules: &Vec<Cellule>) -> Vec<Cellule> {
-        // todo update
-        vec![]
+        (0..initial_cellules.len())
+            .into_iter()
+            .map(|index| {
+                let mut input_line = String::new();
+                io::stdin().read_line(&mut input_line).unwrap();
+                let inputs = input_line.split(" ").collect::<Vec<_>>();
+                let resources = parse_input!(inputs[0], i32); // the current amount of eggs/crystals on this cell
+                let my_ants = parse_input!(inputs[1], i32); // the amount of your ants on this cell
+                let opp_ants = parse_input!(inputs[2], i32); // the amount of opponent ants on this cell
+
+                let initial_cellule = initial_cellules
+                    .iter()
+                    .find(|cellule| cellule.identifiant == index as i32)
+                    .unwrap();
+
+                Cellule {
+                    r#type: initial_cellule.r#type,
+                    identifiant: initial_cellule.identifiant,
+                    nombre_de_crystal: resources,
+                    nombre_insectes: Some(my_ants),
+                    nombre_insectes_enemy: Some(opp_ants)
+                }
+            })
+            .collect::<Vec<_>>()
     }
 }
