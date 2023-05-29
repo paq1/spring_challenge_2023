@@ -19,7 +19,7 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    let mut my_bot = BasicIAWithEggsFirst { current_target:  None };
+    let mut my_bot = BasicIAWithEggsFirst :: new();
 
     let mut index_tour = 0;
 
@@ -98,15 +98,32 @@ mod behaviors {
      */
     pub mod basic_ia_with_eggs_first {
         use crate::core::behaviors::CanBuildActions;
+        use crate::core::path_finders::CanGiveBestTarget;
         use crate::helpers::CanSort;
         use crate::models::{AllData, Cellule};
+        use crate::path_finders::brutal::BrutalPathFinder;
 
         pub struct BasicIAWithEggsFirst {
-            pub current_target: Option<i32>
+            pub current_target: Option<i32>,
+            path_finder: Box<dyn CanGiveBestTarget>
         }
 
         impl CanBuildActions for BasicIAWithEggsFirst {
             fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+
+                let nearest_eggs = self.path_finder.nearest_eggs(
+                    all_data.my_base_index,
+                    &all_data.cellules
+                );
+                let nearest_crystals = self.path_finder.nearest_crystals(
+                    all_data.my_base_index,
+                    &all_data.cellules
+                );
+
+                eprintln!("index nearest eggs {}", nearest_eggs);
+                eprintln!("index nearest crys {}", nearest_crystals);
+
+
                 let sorted_cellules_by_crystal = all_data
                     .cellules.clone()
                     .into_iter()
@@ -149,6 +166,13 @@ mod behaviors {
         }
 
         impl BasicIAWithEggsFirst {
+            pub fn new() -> Self {
+                Self {
+                    current_target: None,
+                    path_finder: Box::new(BrutalPathFinder {})
+                }
+            }
+
             fn update_target(&mut self, cellules_sorted: &Vec<Cellule>) {
                 let target_exist = cellules_sorted.iter()
                     .find(|cellule| cellule.identifiant == self.current_target.unwrap_or(-1))
@@ -164,6 +188,89 @@ mod behaviors {
 
 }
 
+mod path_finders {
+
+    pub mod brutal {
+        use crate::core::path_finders::CanGiveBestTarget;
+        use crate::models::Cellule;
+        use crate::type_redifined::Identifiant;
+
+        pub struct BrutalPathFinder;
+
+        impl CanGiveBestTarget for BrutalPathFinder {
+            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant {
+                self.nearest_element(base_index, cellules, vec![],1, 1).0
+            }
+
+            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant {
+                self.nearest_element(base_index, cellules, vec![], 2, 1).0
+            }
+        }
+
+        impl BrutalPathFinder {
+
+            pub fn new() -> Self {
+                Self {}
+            }
+
+            fn nearest_element(
+                &self,
+                base_index: Identifiant,
+                cellules: &Vec<Cellule>,
+                deja_vu: Vec<Identifiant>,
+                r#type: i32,
+                iteration: i32
+            ) -> (Identifiant, i32) {
+                eprintln!("iteration {}", iteration);
+
+                let current_cellule = cellules.iter()
+                    .find(|c| c.identifiant == base_index)
+                    .unwrap();
+
+                let voisin_existants = current_cellule.voisins.iter()
+                    .map(|e| e.clone())
+                    .filter(|index| index.clone() != -1 && !deja_vu.contains(index))
+                    .collect::<Vec<_>>();
+
+                let voisin_avec_element = voisin_existants
+                    .iter()
+                    .map(|e| e.clone())
+                    .find(|index| {
+                        cellules.iter()
+                            .find(|cellule| cellule.identifiant == index.clone() && cellule.r#type == r#type)
+                            .is_some()
+                    });
+
+                if voisin_avec_element.is_some() {
+                    (voisin_avec_element.unwrap(), iteration + 1)
+                } else {
+                    let mut res = voisin_existants.iter()
+                        .map(|voisin_index| {
+                            self.nearest_element(
+                                voisin_index.clone(),
+                                cellules,
+                                deja_vu.clone().into_iter()
+                                    .chain(voisin_existants.clone().into_iter())
+                                    .collect::<Vec<_>>(),
+                                r#type,
+                                iteration + 1
+                            )
+                        })
+                        .filter(|e| e.clone().1 != -1)
+                        .collect::<Vec<_>>();
+
+                    res.sort_by(|e1, e2| (*e1).1.cmp(&(*e2).1));
+                    res
+                        .first()
+                        .map(|v| v.clone())
+                        .unwrap_or((-1, -1))
+                }
+            }
+        }
+
+    }
+}
+
 mod core {
     pub mod behaviors {
         use crate::models::AllData;
@@ -175,6 +282,17 @@ mod core {
                 let actions = self.build_actions(all_data).join(";");
                 println!("{}", actions);
             }
+        }
+
+    }
+
+    pub mod path_finders {
+        use crate::models::Cellule;
+        use crate::type_redifined::Identifiant;
+
+        pub trait CanGiveBestTarget {
+            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant;
+            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant;
         }
 
     }
@@ -312,4 +430,8 @@ mod helpers {
             })
             .collect::<Vec<_>>()
     }
+}
+
+mod type_redifined {
+    pub type Identifiant = i32;
 }
