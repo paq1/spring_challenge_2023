@@ -33,8 +33,8 @@ fn main() {
         let all_data = AllData {
             initial_cellules: initial_cellules.clone(),
             cellules: updated_cellules,
-            my_base_index,
-            opp_base_index,
+            my_bases_index: my_base_index.clone(),
+            opp_bases_index: opp_base_index.clone(),
             tour_actuel: index_tour
         };
 
@@ -65,7 +65,7 @@ mod behaviors {
                     .map(|cellule| {
                         format!(
                             "LINE {} {} {}",
-                            all_data.my_base_index,
+                            all_data.my_bases_index.first().unwrap(),
                             cellule.identifiant,
                             20
                         )
@@ -95,7 +95,7 @@ mod behaviors {
         impl CanBuildActions for BasicIARechercheNidProche {
             fn build_actions(&self, all_data: &AllData) -> Vec<String> {
                 let nearest_eggs = self.nearest_eggs(
-                    all_data.my_base_index,
+                    all_data.my_bases_index.first().unwrap().clone(),
                     &all_data.cellules
                 );
                 let nearest_egg_id = nearest_eggs.0;
@@ -105,7 +105,7 @@ mod behaviors {
                 let action = if nearest_egg_id > -1 {
                     format!(
                         "LINE {} {} {}",
-                        all_data.my_base_index,
+                        all_data.my_bases_index.first().unwrap(),
                         nearest_egg_id,
                         10
                     )
@@ -318,8 +318,8 @@ mod models {
     pub struct AllData {
         pub initial_cellules: Vec<Cellule>,
         pub cellules: Vec<Cellule>,
-        pub my_base_index: i32,
-        pub opp_base_index: i32,
+        pub my_bases_index: Vec<i32>,
+        pub opp_bases_index: Vec<i32>,
         pub tour_actuel: i32
     }
 
@@ -412,18 +412,12 @@ mod helpers {
     use crate::core::path_finders::CanFindDistanceIndex;
     use crate::models::Cellule;
 
-    pub fn load_index_base() -> i32 {
+    pub fn load_index_base() -> Vec<i32> {
         let mut inputs = String::new();
         io::stdin().read_line(&mut inputs).unwrap();
         inputs.split_whitespace()
             .map(|index_str| parse_input!(index_str, i32) as i32)
             .collect::<Vec<_>>()
-            .first()
-            .map(|res| res.clone())
-            .unwrap_or_else(|| {
-                eprintln!("erreur du chargement de l'index de la base");
-                0
-            })
     }
 
     pub fn load_nombre_de_bases() -> i32 {
