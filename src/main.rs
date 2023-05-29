@@ -193,6 +193,12 @@ mod behaviors {
                     all_data.my_base_index,
                     &all_data.cellules
                 );
+                let sorted_cellules_by_crystal = all_data
+                    .cellules.clone()
+                    .into_iter()
+                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 2)
+                    .collect::<Vec<_>>()
+                    .sort_immut();
 
                 eprintln!("index nearest eggs {}", nearest_eggs);
                 eprintln!("index nearest crys {}", nearest_crystals);
@@ -210,7 +216,21 @@ mod behaviors {
                         "WAIT".to_string()
                     };
 
-                    vec![collect_eggs_action]
+                    let collect_crystal_action = if nearest_crystals != -1 {
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_crystals,
+                            1
+                        )
+                    } else {
+                        "WAIT".to_string()
+                    };
+
+                    vec![
+                        collect_eggs_action,
+                        collect_crystal_action
+                    ]
                 } else if all_data.tour_actuel < 12 {
                     let collect_eggs_action = if nearest_eggs != -1 {
                         format!(
@@ -244,15 +264,31 @@ mod behaviors {
                             "LINE {} {} {}",
                             all_data.my_base_index,
                             nearest_crystals,
-                            4
+                            5
                         )
                     } else {
                         "WAIT".to_string()
                     };
 
+                    let others = sorted_cellules_by_crystal
+                        .into_iter()
+                        .map(|cellule| {
+                            format!(
+                                "LINE {} {} {}",
+                                all_data.my_base_index,
+                                cellule.identifiant,
+                                2
+                            )
+                        })
+                        .collect::<Vec<_>>();
+
                     vec![
                         collect_crystal_action
                     ]
+                        .iter()
+                        .chain(others.iter())
+                        .map(|ref_command| ref_command.clone())
+                        .collect::<Vec<_>>()
                 }
             }
         }
