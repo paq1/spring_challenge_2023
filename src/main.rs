@@ -4,6 +4,7 @@ use crate::helpers::*;
 
 use behaviors::basic_ia::BasicIA;
 use crate::behaviors::basic_ia_with_eggs_first::BasicIAWithEggsFirst;
+use crate::behaviors::basic_ia_with_path_finder::BasicIAWithPathFinder;
 use crate::core::behaviors::CanBuildActions;
 
 use crate::models::{AllData, Cellule};
@@ -19,7 +20,7 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    let mut my_bot = BasicIAWithEggsFirst :: new();
+    let mut my_bot = BasicIAWithPathFinder :: new();
 
     let mut index_tour = 0;
 
@@ -101,28 +102,13 @@ mod behaviors {
         use crate::core::path_finders::CanGiveBestTarget;
         use crate::helpers::CanSort;
         use crate::models::{AllData, Cellule};
-        use crate::path_finders::brutal::BrutalPathFinder;
 
         pub struct BasicIAWithEggsFirst {
-            pub current_target: Option<i32>,
-            path_finder: Box<dyn CanGiveBestTarget>
+            pub current_target: Option<i32>
         }
 
         impl CanBuildActions for BasicIAWithEggsFirst {
             fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
-
-                let nearest_eggs = self.path_finder.nearest_eggs(
-                    all_data.my_base_index,
-                    &all_data.cellules
-                );
-                let nearest_crystals = self.path_finder.nearest_crystals(
-                    all_data.my_base_index,
-                    &all_data.cellules
-                );
-
-                eprintln!("index nearest eggs {}", nearest_eggs);
-                eprintln!("index nearest crys {}", nearest_crystals);
-
 
                 let sorted_cellules_by_crystal = all_data
                     .cellules.clone()
@@ -168,8 +154,7 @@ mod behaviors {
         impl BasicIAWithEggsFirst {
             pub fn new() -> Self {
                 Self {
-                    current_target: None,
-                    path_finder: Box::new(BrutalPathFinder {})
+                    current_target: None
                 }
             }
 
@@ -185,7 +170,98 @@ mod behaviors {
         }
     }
 
+    pub mod basic_ia_with_path_finder {
+        use crate::core::behaviors::CanBuildActions;
+        use crate::core::path_finders::CanGiveBestTarget;
+        use crate::helpers::CanSort;
+        use crate::models::{AllData, Cellule};
+        use crate::path_finders::brutal::BrutalPathFinder;
 
+        pub struct BasicIAWithPathFinder {
+            pub current_target: Option<i32>,
+            path_finder: Box<dyn CanGiveBestTarget>
+        }
+
+        impl CanBuildActions for BasicIAWithPathFinder {
+            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+
+                let nearest_eggs = self.path_finder.nearest_eggs(
+                    all_data.my_base_index,
+                    &all_data.cellules
+                );
+                let nearest_crystals = self.path_finder.nearest_crystals(
+                    all_data.my_base_index,
+                    &all_data.cellules
+                );
+
+                eprintln!("index nearest eggs {}", nearest_eggs);
+                eprintln!("index nearest crys {}", nearest_crystals);
+
+                let collect_eggs_action = format!(
+                    "LINE {} {} {}",
+                    all_data.my_base_index,
+                    nearest_eggs,
+                    1
+                );
+                let collect_crystal_action = format!(
+                    "LINE {} {} {}",
+                    all_data.my_base_index,
+                    nearest_crystals,
+                    1
+                );
+
+                if all_data.tour_actuel < 7 {
+                    let collect_eggs_action = format!(
+                        "LINE {} {} {}",
+                        all_data.my_base_index,
+                        nearest_eggs,
+                        2
+                    );
+
+                    vec![collect_eggs_action]
+                } else if all_data.tour_actuel < 12 {
+                    let collect_eggs_action = format!(
+                        "LINE {} {} {}",
+                        all_data.my_base_index,
+                        nearest_eggs,
+                        2
+                    );
+
+                    let collect_crystal_action = format!(
+                        "LINE {} {} {}",
+                        all_data.my_base_index,
+                        nearest_crystals,
+                        2
+                    );
+
+                    vec![
+                        collect_eggs_action,
+                        collect_crystal_action
+                    ]
+                } else {
+                    let collect_crystal_action = format!(
+                        "LINE {} {} {}",
+                        all_data.my_base_index,
+                        nearest_crystals,
+                        4
+                    );
+
+                    vec![
+                        collect_crystal_action
+                    ]
+                }
+            }
+        }
+
+        impl BasicIAWithPathFinder {
+            pub fn new() -> Self {
+                Self {
+                    current_target: None,
+                    path_finder: Box::new(BrutalPathFinder {})
+                }
+            }
+        }
+    }
 }
 
 mod path_finders {
@@ -221,7 +297,7 @@ mod path_finders {
                 r#type: i32,
                 iteration: i32
             ) -> (Identifiant, i32) {
-                eprintln!("iteration {}", iteration);
+                // eprintln!("iteration {}", iteration);
 
                 let current_cellule = cellules.iter()
                     .find(|c| c.identifiant == base_index)
@@ -237,7 +313,7 @@ mod path_finders {
                     .map(|e| e.clone())
                     .find(|index| {
                         cellules.iter()
-                            .find(|cellule| cellule.identifiant == index.clone() && cellule.r#type == r#type)
+                            .find(|cellule| cellule.identifiant == index.clone() && cellule.r#type == r#type && cellule.nombre_de_crystal > 0)
                             .is_some()
                     });
 
@@ -261,8 +337,15 @@ mod path_finders {
 
                     res.sort_by(|e1, e2| (*e1).1.cmp(&(*e2).1));
                     res
-                        .first()
-                        .map(|v| v.clone())
+                        .iter()
+                        .map(|e| e.clone())
+                        .filter(|e| {
+                            let cellule = cellules.iter()
+                                .map(|cell| cell.clone())
+                                .find(|cell| cell.identifiant == (e.clone().0));
+                            cellule.unwrap().nombre_de_crystal > 0
+                        })
+                        .nth(0)
                         .unwrap_or((-1, -1))
                 }
             }
