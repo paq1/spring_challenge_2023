@@ -5,6 +5,7 @@ use crate::helpers::*;
 use behaviors::basic_ia::BasicIA;
 use crate::behaviors::basic_ia_with_eggs_first::BasicIAWithEggsFirst;
 use crate::behaviors::basic_ia_with_path_finder::BasicIAWithPathFinder;
+use crate::behaviors::basic_ia_with_path_finder_with_heuristique::BasicIAWithPathFinderWithHeuristique;
 use crate::core::behaviors::CanBuildActions;
 
 use crate::models::{AllData, Cellule};
@@ -20,7 +21,7 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    let mut my_bot = BasicIAWithPathFinder :: new();
+    let mut my_bot = BasicIAWithPathFinderWithHeuristique :: new();
 
     let mut index_tour = 0;
 
@@ -32,6 +33,7 @@ fn main() {
         let updated_cellules = update_cellules(&initial_cellules);
 
         let all_data = AllData {
+            initial_cellules: initial_cellules.clone(),
             cellules: updated_cellules,
             my_base_index,
             opp_base_index,
@@ -189,10 +191,14 @@ mod behaviors {
                     all_data.my_base_index,
                     &all_data.cellules
                 );
+                let nearest_egg_id = nearest_eggs.0;
+                let nearest_egg_dist = nearest_eggs.1;
                 let nearest_crystals = self.path_finder.nearest_crystals(
                     all_data.my_base_index,
                     &all_data.cellules
                 );
+                let nearest_crystal_id = nearest_crystals.0;
+                let nearest_crystal_dist = nearest_crystals.1;
                 let sorted_cellules_by_crystal = all_data
                     .cellules.clone()
                     .into_iter()
@@ -200,55 +206,58 @@ mod behaviors {
                     .collect::<Vec<_>>()
                     .sort_immut();
 
-                eprintln!("index nearest eggs {}", nearest_eggs);
-                eprintln!("index nearest crys {}", nearest_crystals);
+                eprintln!("index nearest eggs {:?}", nearest_eggs);
+                eprintln!("index nearest crys {:?}", nearest_crystals);
+
+                let nombre_total_insect = all_data.get_my_total_insect();
+                let nombre_total_insect_enemy = all_data.get_enemy_total_insect();
 
                 if all_data.tour_actuel < 7 {
 
-                    let collect_eggs_action = if nearest_eggs != -1 {
+                    let collect_eggs_action = if nearest_egg_id != -1 {
                         format!(
                             "LINE {} {} {}",
                             all_data.my_base_index,
-                            nearest_eggs,
-                            2
+                            nearest_egg_id,
+                            10
                         )
                     } else {
                         "WAIT".to_string()
                     };
 
-                    let collect_crystal_action = if nearest_crystals != -1 {
-                        format!(
-                            "LINE {} {} {}",
-                            all_data.my_base_index,
-                            nearest_crystals,
-                            1
-                        )
-                    } else {
-                        "WAIT".to_string()
-                    };
+                    // let collect_crystal_action = if nearest_crystal_id != -1 {
+                    //     format!(
+                    //         "LINE {} {} {}",
+                    //         all_data.my_base_index,
+                    //         nearest_crystal_id,
+                    //         1
+                    //     )
+                    // } else {
+                    //     "WAIT".to_string()
+                    // };
 
                     vec![
                         collect_eggs_action,
-                        collect_crystal_action
+                        // collect_crystal_action
                     ]
                 } else if all_data.tour_actuel < 12 {
-                    let collect_eggs_action = if nearest_eggs != -1 {
+                    let collect_eggs_action = if nearest_egg_id != -1 {
                         format!(
                             "LINE {} {} {}",
                             all_data.my_base_index,
-                            nearest_eggs,
-                            2
+                            nearest_egg_id,
+                            4
                         )
                     } else {
                         "WAIT".to_string()
                     };
 
-                    let collect_crystal_action = if nearest_crystals != -1 {
+                    let collect_crystal_action = if nearest_crystal_id != -1 {
                         format!(
                             "LINE {} {} {}",
                             all_data.my_base_index,
-                            nearest_crystals,
-                            2
+                            nearest_crystal_id,
+                            10
                         )
                     } else {
                         "WAIT".to_string()
@@ -259,12 +268,12 @@ mod behaviors {
                         collect_crystal_action
                     ]
                 } else {
-                    let collect_crystal_action = if nearest_crystals != -1 {
+                    let collect_crystal_action = if nearest_crystal_id != -1 {
                         format!(
                             "LINE {} {} {}",
                             all_data.my_base_index,
-                            nearest_crystals,
-                            5
+                            nearest_crystal_id,
+                            10
                         )
                     } else {
                         "WAIT".to_string()
@@ -302,6 +311,108 @@ mod behaviors {
             }
         }
     }
+
+    pub mod basic_ia_with_path_finder_with_heuristique {
+        use crate::core::behaviors::CanBuildActions;
+        use crate::core::path_finders::CanGiveBestTarget;
+        use crate::helpers::CanSort;
+        use crate::models::{AllData, Cellule};
+        use crate::path_finders::brutal::BrutalPathFinder;
+
+        pub struct BasicIAWithPathFinderWithHeuristique {
+            pub current_target: Option<i32>,
+            path_finder: Box<dyn CanGiveBestTarget>
+        }
+
+        impl CanBuildActions for BasicIAWithPathFinderWithHeuristique {
+            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+
+                let nearest_eggs = self.path_finder.nearest_eggs(
+                    all_data.my_base_index,
+                    &all_data.cellules
+                );
+                let nearest_egg_id = nearest_eggs.0;
+                let nearest_egg_dist = nearest_eggs.1;
+                let nearest_crystals = self.path_finder.nearest_crystals(
+                    all_data.my_base_index,
+                    &all_data.cellules
+                );
+                let nearest_crystal_id = nearest_crystals.0;
+                let nearest_crystal_dist = nearest_crystals.1;
+                let sorted_cellules_by_crystal = all_data
+                    .cellules.clone()
+                    .into_iter()
+                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 2)
+                    .collect::<Vec<_>>()
+                    .sort_immut();
+
+                eprintln!("index nearest eggs {:?}", nearest_eggs);
+                eprintln!("index nearest crys {:?}", nearest_crystals);
+
+                let nombre_total_insect = all_data.get_my_total_insect();
+                let nombre_total_insect_enemy = all_data.get_enemy_total_insect();
+
+                if all_data.get_nombre_nid_detruit() < 1 && nombre_total_insect < 30 {
+                    vec![
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_egg_id,
+                            10
+                        )
+                    ]
+                } else {
+                    let collect_crystal_action = if nearest_crystal_id != -1 {
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_crystal_id,
+                            20
+                        )
+                    } else {
+                        "WAIT".to_string()
+                    };
+
+                    let others = sorted_cellules_by_crystal
+                        .into_iter()
+                        .map(|cellule| {
+                            format!(
+                                "LINE {} {} {}",
+                                all_data.my_base_index,
+                                cellule.identifiant,
+                                20
+                            )
+                        })
+                        .collect::<Vec<_>>();
+
+                    others
+
+                    // if all_data.get_nombre_crystal_detruit() < 1 {
+                    //     vec![
+                    //         collect_crystal_action
+                    //     ]
+                    // } else {
+                    //     vec![
+                    //         collect_crystal_action
+                    //     ]
+                    //         .iter()
+                    //         .chain(others.iter())
+                    //         .map(|ref_command| ref_command.clone())
+                    //         .collect::<Vec<_>>()
+                    // }
+                }
+            }
+        }
+
+        impl BasicIAWithPathFinderWithHeuristique {
+            pub fn new() -> Self {
+                Self {
+                    current_target: None,
+                    path_finder: Box::new(BrutalPathFinder {})
+                }
+            }
+        }
+    }
 }
 
 mod path_finders {
@@ -309,17 +420,17 @@ mod path_finders {
     pub mod brutal {
         use crate::core::path_finders::CanGiveBestTarget;
         use crate::models::Cellule;
-        use crate::type_redifined::Identifiant;
+        use crate::type_redifined::{Distance, Identifiant};
 
         pub struct BrutalPathFinder;
 
         impl CanGiveBestTarget for BrutalPathFinder {
-            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant {
-                self.nearest_element(base_index, cellules, vec![],1, 1).0
+            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
+                self.nearest_element(base_index, cellules, vec![],1, 1)
             }
 
-            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant {
-                self.nearest_element(base_index, cellules, vec![], 2, 1).0
+            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
+                self.nearest_element(base_index, cellules, vec![], 2, 1)
             }
         }
 
@@ -336,7 +447,7 @@ mod path_finders {
                 deja_vu: Vec<Identifiant>,
                 r#type: i32,
                 iteration: i32
-            ) -> (Identifiant, i32) {
+            ) -> (Identifiant, Distance) {
                 // eprintln!("iteration {}", iteration);
 
                 let current_cellule = cellules.iter()
@@ -411,11 +522,11 @@ mod core {
 
     pub mod path_finders {
         use crate::models::Cellule;
-        use crate::type_redifined::Identifiant;
+        use crate::type_redifined::{Distance, Identifiant};
 
         pub trait CanGiveBestTarget {
-            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant;
-            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> Identifiant;
+            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance);
+            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance);
         }
 
     }
@@ -424,10 +535,61 @@ mod core {
 mod models {
 
     pub struct AllData {
+        pub initial_cellules: Vec<Cellule>,
         pub cellules: Vec<Cellule>,
         pub my_base_index: i32,
         pub opp_base_index: i32,
         pub tour_actuel: i32
+    }
+
+    impl AllData {
+        pub fn get_my_total_insect(&self) -> i32 {
+            self.cellules.iter().fold(0, |acc, current| {
+                acc + current.nombre_insectes.unwrap_or(0)
+            })
+        }
+
+        pub fn get_enemy_total_insect(&self) -> i32 {
+            self.cellules.iter().fold(0, |acc, current| {
+                acc + current.nombre_insectes_enemy.unwrap_or(0)
+            })
+        }
+
+        pub fn get_nombre_nid_detruit(&self) -> i32 {
+            self.get_nombre_nid_initial() - self.get_nombre_nid_actuel()
+        }
+
+        pub fn get_nombre_crystal_detruit(&self) -> i32 {
+            self.get_nombre_crystal_initial() - self.get_nombre_crystal_actuel()
+        }
+
+        pub fn get_nombre_crystal_initial(&self) -> i32 {
+            self.initial_cellules
+                .iter()
+                .filter(|cellule| cellule.r#type == 2)
+                .count() as i32
+        }
+
+        pub fn get_nombre_crystal_actuel(&self) -> i32 {
+            self.cellules
+                .iter()
+                .filter(|cellule| cellule.r#type == 2 && cellule.nombre_de_crystal > 0)
+                .count() as i32
+        }
+
+        pub fn get_nombre_nid_initial(&self) -> i32 {
+            self.initial_cellules
+                .iter()
+                .filter(|cellule| cellule.r#type == 1)
+                .count() as i32
+        }
+
+        pub fn get_nombre_nid_actuel(&self) -> i32 {
+            self.cellules
+                .iter()
+                .filter(|cellule| cellule.r#type == 1 && cellule.nombre_de_crystal > 0)
+                .count() as i32
+        }
     }
 
     #[derive(Clone)]
@@ -557,4 +719,5 @@ mod helpers {
 
 mod type_redifined {
     pub type Identifiant = i32;
+    pub type Distance = i32;
 }
