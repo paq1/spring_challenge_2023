@@ -82,10 +82,12 @@ mod behaviors {
 
     pub mod basic_ia_recherche_nid_proche {
         use crate::core::behaviors::CanBuildActions;
-        use crate::core::path_finders::CanGiveBestTarget;
+        use crate::core::path_finders::{CanFindDistanceIndex, CanGiveBestTarget};
         use crate::models::AllData;
 
         pub struct BasicIARechercheNidProche;
+
+        impl CanFindDistanceIndex for BasicIARechercheNidProche {}
 
         impl CanGiveBestTarget for BasicIARechercheNidProche {}
 
@@ -98,6 +100,10 @@ mod behaviors {
                 let nearest_egg_id = nearest_eggs.0;
 
                 eprintln!("index nearest eggs {:?}", nearest_eggs);
+
+                eprintln!(
+                    "distance {} ", self.find_distance(55, &all_data.cellules, 39)
+                );
 
                 let action = if nearest_egg_id > -1 {
                     format!(
@@ -174,10 +180,11 @@ mod core {
     }
 
     pub mod path_finders {
+        use crate::core::path_finders::distance_helper::calcul_distance;
         use crate::models::Cellule;
         use crate::type_redifined::{Distance, Identifiant};
 
-        pub trait CanGiveBestTarget {
+        pub trait CanGiveBestTarget: CanFindDistanceIndex {
 
             fn nearest_resources(
                 &self,
@@ -243,6 +250,66 @@ mod core {
             }
             fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
                 self.nearest_resources(base_index, cellules, vec![],2, 1)
+            }
+        }
+
+        pub trait CanFindDistanceIndex {
+            fn find_distance(&self, depart_identifiant: Identifiant, cellules: &Vec<Cellule>, recherche_id: Identifiant) -> Distance {
+                calcul_distance(
+                    depart_identifiant,
+                    cellules,
+                    recherche_id,
+                    vec![],
+                    0
+                )
+            }
+        }
+
+        mod distance_helper {
+            use crate::models::Cellule;
+            use crate::type_redifined::{Distance, Identifiant};
+
+            pub fn calcul_distance(
+                depart_index: Identifiant,
+                cellules: &Vec<Cellule>,
+                recherche_id: Identifiant,
+                deja_vu: Vec<Identifiant>,
+                iteration: Distance
+            ) -> Distance {
+                let current_cellule = cellules.iter()
+                    .find(|c| c.identifiant == depart_index)
+                    .unwrap();
+
+                let voisin_existants = current_cellule.voisins.iter()
+                    .map(|e| e.clone())
+                    .filter(|index| index.clone() != -1 && !deja_vu.contains(index))
+                    .collect::<Vec<_>>();
+
+                if voisin_existants.contains(&recherche_id) {
+                    iteration + 1
+                } else {
+                    let mut res = voisin_existants.iter()
+                        .map(|voisin_index| {
+                            calcul_distance(
+                                voisin_index.clone(),
+                                cellules,
+                                recherche_id,
+                                deja_vu.clone().into_iter()
+                                    .chain(voisin_existants.clone().into_iter())
+                                    .collect::<Vec<_>>(),
+                                iteration + 1
+                            )
+                        })
+                        .filter(|e| e.clone() != -1)
+                        .collect::<Vec<_>>();
+
+                    res.sort_by(|e1, e2| e1.cmp(e2));
+                    res
+                        .iter()
+                        .map(|e| e.clone())
+                        .nth(0)
+                        .unwrap_or(-1)
+                }
             }
         }
     }
