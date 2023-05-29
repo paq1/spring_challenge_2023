@@ -133,10 +133,6 @@ mod behaviors {
 
                 eprintln!("index nearest eggs {:?}", nearest_eggs);
 
-                eprintln!(
-                    "distance {} ", self.find_distance(55, &all_data.cellules, 39)
-                );
-
                 let action = if nearest_egg_id > -1 {
                     format!(
                         "LINE {} {} {}",
