@@ -197,54 +197,58 @@ mod behaviors {
                 eprintln!("index nearest eggs {}", nearest_eggs);
                 eprintln!("index nearest crys {}", nearest_crystals);
 
-                let collect_eggs_action = format!(
-                    "LINE {} {} {}",
-                    all_data.my_base_index,
-                    nearest_eggs,
-                    1
-                );
-                let collect_crystal_action = format!(
-                    "LINE {} {} {}",
-                    all_data.my_base_index,
-                    nearest_crystals,
-                    1
-                );
-
                 if all_data.tour_actuel < 7 {
-                    let collect_eggs_action = format!(
-                        "LINE {} {} {}",
-                        all_data.my_base_index,
-                        nearest_eggs,
-                        2
-                    );
+
+                    let collect_eggs_action = if nearest_eggs != -1 {
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_eggs,
+                            2
+                        )
+                    } else {
+                        "WAIT".to_string()
+                    };
 
                     vec![collect_eggs_action]
                 } else if all_data.tour_actuel < 12 {
-                    let collect_eggs_action = format!(
-                        "LINE {} {} {}",
-                        all_data.my_base_index,
-                        nearest_eggs,
-                        2
-                    );
+                    let collect_eggs_action = if nearest_eggs != -1 {
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_eggs,
+                            2
+                        )
+                    } else {
+                        "WAIT".to_string()
+                    };
 
-                    let collect_crystal_action = format!(
-                        "LINE {} {} {}",
-                        all_data.my_base_index,
-                        nearest_crystals,
-                        2
-                    );
+                    let collect_crystal_action = if nearest_crystals != -1 {
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_crystals,
+                            2
+                        )
+                    } else {
+                        "WAIT".to_string()
+                    };
 
                     vec![
                         collect_eggs_action,
                         collect_crystal_action
                     ]
                 } else {
-                    let collect_crystal_action = format!(
-                        "LINE {} {} {}",
-                        all_data.my_base_index,
-                        nearest_crystals,
-                        4
-                    );
+                    let collect_crystal_action = if nearest_crystals != -1 {
+                        format!(
+                            "LINE {} {} {}",
+                            all_data.my_base_index,
+                            nearest_crystals,
+                            4
+                        )
+                    } else {
+                        "WAIT".to_string()
+                    };
 
                     vec![
                         collect_crystal_action
