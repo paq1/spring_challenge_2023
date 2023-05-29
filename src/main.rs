@@ -4,6 +4,7 @@ use crate::helpers::*;
 
 use crate::behaviors::basic_ia_with_bronze::BasicIABronze;
 use crate::core::behaviors::CanBuildActions;
+use crate::core::path_finders::CanFindDistanceIndex;
 
 use crate::models::{AllData, Cellule};
 
@@ -18,6 +19,37 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
+    // ajout des distances dans les cellules
+    struct CalculateurDistance;
+    impl CanFindDistanceIndex for CalculateurDistance {};
+    let calulateur_distance = CalculateurDistance {};
+    let initial_cellules_with_distance = initial_cellules
+        .iter()
+        // .filter(|cellule| cellule.r#type != 0)
+        .map(|cellule| {
+            // on calcule que la distance où le type est pas vide a cause du temps de calcul
+            let distance_base_opt = if cellule.r#type != 0 {
+                let distance_base = calulateur_distance.find_distance(
+                    my_base_index,
+                    &initial_cellules,
+                    cellule.identifiant
+                );
+                Some(distance_base)
+            } else {
+                None
+            };
+            Cellule {
+                r#type: cellule.r#type,
+                identifiant: cellule.identifiant,
+                nombre_de_crystal: cellule.nombre_de_crystal,
+                nombre_insectes: cellule.nombre_insectes,
+                nombre_insectes_enemy: cellule.nombre_insectes_enemy,
+                voisins: cellule.voisins.clone(),
+                distance_base: distance_base_opt
+            }
+        })
+        .collect::<Vec<_>>();
+
     let my_bot = BasicIABronze :: new();
 
     let mut index_tour = 0;
@@ -27,10 +59,10 @@ fn main() {
         index_tour += 1;
 
         // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
-        let updated_cellules = update_cellules(&initial_cellules);
+        let updated_cellules = update_cellules(&initial_cellules_with_distance);
 
         let all_data = AllData {
-            initial_cellules: initial_cellules.clone(),
+            initial_cellules: initial_cellules_with_distance.clone(),
             cellules: updated_cellules,
             my_base_index,
             opp_base_index,
@@ -316,7 +348,7 @@ mod core {
 }
 
 mod models {
-    use crate::type_redifined::Identifiant;
+    use crate::type_redifined::{Distance, Identifiant};
 
     pub struct AllData {
         pub initial_cellules: Vec<Cellule>,
@@ -383,7 +415,8 @@ mod models {
         pub nombre_de_crystal: i32,
         pub nombre_insectes: Option<i32>,
         pub nombre_insectes_enemy: Option<i32>,
-        pub voisins: Vec<Identifiant>
+        pub voisins: Vec<Identifiant>,
+        pub distance_base: Option<Distance>
     }
 }
 
@@ -411,6 +444,7 @@ mod helpers {
     }
 
     use std::io;
+    use crate::core::path_finders::CanFindDistanceIndex;
     use crate::models::Cellule;
 
     pub fn load_index_base() -> i32 {
@@ -466,7 +500,8 @@ mod helpers {
                         neigh_3,
                         neigh_4,
                         neigh_5
-                    ]
+                    ],
+                    distance_base: None
                 }
             })
             .collect::<Vec<_>>()
@@ -494,7 +529,8 @@ mod helpers {
                     nombre_de_crystal: resources,
                     nombre_insectes: Some(my_ants),
                     nombre_insectes_enemy: Some(opp_ants),
-                    voisins: initial_cellule.voisins.clone()
+                    voisins: initial_cellule.voisins.clone(),
+                    distance_base: initial_cellule.distance_base
                 }
             })
             .collect::<Vec<_>>()
