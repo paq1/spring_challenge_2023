@@ -83,17 +83,15 @@ mod behaviors {
     pub mod basic_ia_recherche_nid_proche {
         use crate::core::behaviors::CanBuildActions;
         use crate::core::path_finders::CanGiveBestTarget;
-        use crate::helpers::CanSort;
-        use crate::models::{AllData, Cellule};
-        use crate::path_finders::brutal::BrutalPathFinder;
+        use crate::models::AllData;
 
-        pub struct BasicIARechercheNidProche {
-            path_finder: Box<dyn CanGiveBestTarget>
-        }
+        pub struct BasicIARechercheNidProche;
+
+        impl CanGiveBestTarget for BasicIARechercheNidProche {}
 
         impl CanBuildActions for BasicIARechercheNidProche {
             fn build_actions(&self, all_data: &AllData) -> Vec<String> {
-                let nearest_eggs = self.path_finder.nearest_eggs(
+                let nearest_eggs = self.nearest_eggs(
                     all_data.my_base_index,
                     &all_data.cellules
                 );
@@ -120,9 +118,7 @@ mod behaviors {
 
         impl BasicIARechercheNidProche {
             pub fn new() -> Self {
-                Self {
-                    path_finder: Box::new(BrutalPathFinder :: new())
-                }
+                Self {}
             }
         }
     }
@@ -131,13 +127,9 @@ mod behaviors {
         use crate::behaviors::basic_ia_attrape_tout_crystaux::BasicIAAttrapeToutCrystaux;
         use crate::behaviors::basic_ia_recherche_nid_proche::BasicIARechercheNidProche;
         use crate::core::behaviors::CanBuildActions;
-        use crate::core::path_finders::CanGiveBestTarget;
-        use crate::helpers::CanSort;
-        use crate::models::{AllData, Cellule};
-        use crate::path_finders::brutal::BrutalPathFinder;
+        use crate::models::AllData;
 
         pub struct BasicIABronze {
-            path_finder: Box<dyn CanGiveBestTarget>,
             ia_attrape_tout: Box<dyn CanBuildActions>,
             ia_first_nid: Box<dyn CanBuildActions>
         }
@@ -157,7 +149,6 @@ mod behaviors {
         impl BasicIABronze {
             pub fn new() -> Self {
                 Self {
-                    path_finder: Box::new(BrutalPathFinder {}),
                     ia_attrape_tout: Box::new(BasicIAAttrapeToutCrystaux::new()),
                     ia_first_nid: Box::new(BasicIARechercheNidProche::new())
                 }
@@ -166,32 +157,29 @@ mod behaviors {
     }
 }
 
-mod path_finders {
+mod core {
+    pub mod behaviors {
+        use crate::models::{AllData, Cellule};
+        use crate::type_redifined::Identifiant;
 
-    pub mod brutal {
-        use crate::core::path_finders::CanGiveBestTarget;
-        use crate::models::Cellule;
-        use crate::type_redifined::{Distance, Identifiant};
+        pub trait CanBuildActions {
+            fn build_actions(&self, all_data: &AllData) -> Vec<String>;
 
-        pub struct BrutalPathFinder;
-
-        impl CanGiveBestTarget for BrutalPathFinder {
-            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
-                self.nearest_element(base_index, cellules, vec![],1, 1)
-            }
-
-            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
-                self.nearest_element(base_index, cellules, vec![], 2, 1)
+            fn execute_actions(&self, all_data: &AllData) {
+                let actions = self.build_actions(all_data).join(";");
+                println!("{}", actions);
             }
         }
 
-        impl BrutalPathFinder {
+    }
 
-            pub fn new() -> Self {
-                Self {}
-            }
+    pub mod path_finders {
+        use crate::models::Cellule;
+        use crate::type_redifined::{Distance, Identifiant};
 
-            fn nearest_element(
+        pub trait CanGiveBestTarget {
+
+            fn nearest_resources(
                 &self,
                 base_index: Identifiant,
                 cellules: &Vec<Cellule>,
@@ -199,7 +187,6 @@ mod path_finders {
                 r#type: i32,
                 iteration: i32
             ) -> (Identifiant, Distance) {
-                // eprintln!("iteration {}", iteration);
 
                 let current_cellule = cellules.iter()
                     .find(|c| c.identifiant == base_index)
@@ -224,7 +211,7 @@ mod path_finders {
                 } else {
                     let mut res = voisin_existants.iter()
                         .map(|voisin_index| {
-                            self.nearest_element(
+                            self.nearest_resources(
                                 voisin_index.clone(),
                                 cellules,
                                 deja_vu.clone().into_iter()
@@ -251,38 +238,18 @@ mod path_finders {
                         .unwrap_or((-1, -1))
                 }
             }
-        }
-    }
-}
-
-mod core {
-    pub mod behaviors {
-        use crate::models::AllData;
-
-        pub trait CanBuildActions {
-            fn build_actions(&self, all_data: &AllData) -> Vec<String>;
-
-            fn execute_actions(&self, all_data: &AllData) {
-                let actions = self.build_actions(all_data).join(";");
-                println!("{}", actions);
+            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
+                self.nearest_resources(base_index, cellules, vec![],1, 1)
+            }
+            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance) {
+                self.nearest_resources(base_index, cellules, vec![],2, 1)
             }
         }
-
-    }
-
-    pub mod path_finders {
-        use crate::models::Cellule;
-        use crate::type_redifined::{Distance, Identifiant};
-
-        pub trait CanGiveBestTarget {
-            fn nearest_eggs(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance);
-            fn nearest_crystals(&self, base_index: Identifiant, cellules: &Vec<Cellule>) -> (Identifiant, Distance);
-        }
-
     }
 }
 
 mod models {
+    use crate::type_redifined::Identifiant;
 
     pub struct AllData {
         pub initial_cellules: Vec<Cellule>,
@@ -345,11 +312,11 @@ mod models {
     #[derive(Clone)]
     pub struct Cellule {
         pub r#type: i32,
-        pub identifiant: i32,
+        pub identifiant: Identifiant,
         pub nombre_de_crystal: i32,
         pub nombre_insectes: Option<i32>,
         pub nombre_insectes_enemy: Option<i32>,
-        pub voisins: Vec<i32>
+        pub voisins: Vec<Identifiant>
     }
 }
 
