@@ -19,37 +19,6 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    // ajout des distances dans les cellules
-    struct CalculateurDistance;
-    impl CanFindDistanceIndex for CalculateurDistance {};
-    let calulateur_distance = CalculateurDistance {};
-    let initial_cellules_with_distance = initial_cellules
-        .iter()
-        // .filter(|cellule| cellule.r#type != 0)
-        .map(|cellule| {
-            // on calcule que la distance où le type est pas vide a cause du temps de calcul
-            let distance_base_opt = if cellule.r#type != 0 {
-                let distance_base = calulateur_distance.find_distance(
-                    my_base_index,
-                    &initial_cellules,
-                    cellule.identifiant
-                );
-                Some(distance_base)
-            } else {
-                None
-            };
-            Cellule {
-                r#type: cellule.r#type,
-                identifiant: cellule.identifiant,
-                nombre_de_crystal: cellule.nombre_de_crystal,
-                nombre_insectes: cellule.nombre_insectes,
-                nombre_insectes_enemy: cellule.nombre_insectes_enemy,
-                voisins: cellule.voisins.clone(),
-                distance_base: distance_base_opt
-            }
-        })
-        .collect::<Vec<_>>();
-
     let my_bot = BasicIABronze :: new();
 
     let mut index_tour = 0;
@@ -59,10 +28,10 @@ fn main() {
         index_tour += 1;
 
         // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
-        let updated_cellules = update_cellules(&initial_cellules_with_distance);
+        let updated_cellules = update_cellules(&initial_cellules);
 
         let all_data = AllData {
-            initial_cellules: initial_cellules_with_distance.clone(),
+            initial_cellules: initial_cellules.clone(),
             cellules: updated_cellules,
             my_base_index,
             opp_base_index,
