@@ -2,9 +2,6 @@ use std::cell::Cell;
 use std::io;
 use crate::helpers::*;
 
-use behaviors::basic_ia::BasicIA;
-use crate::behaviors::basic_ia_with_eggs_first::BasicIAWithEggsFirst;
-use crate::behaviors::basic_ia_with_path_finder::BasicIAWithPathFinder;
 use crate::behaviors::basic_ia_with_bronze::BasicIABronze;
 use crate::core::behaviors::CanBuildActions;
 
@@ -21,7 +18,7 @@ fn main() {
     let my_base_index = load_index_base();
     let opp_base_index = load_index_base();
 
-    let mut my_bot = BasicIABronze:: new();
+    let my_bot = BasicIABronze :: new();
 
     let mut index_tour = 0;
 
@@ -46,56 +43,6 @@ fn main() {
 
 mod behaviors {
 
-    /*
-    algo basic qui met une LINE entre la base allié et la meilleure cellule
-     */
-    pub mod basic_ia {
-        use crate::core::behaviors::CanBuildActions;
-        use crate::helpers::CanSort;
-        use crate::models::{AllData, Cellule};
-
-        pub struct BasicIA {
-            pub current_target: Option<i32>
-        }
-
-        impl CanBuildActions for BasicIA {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
-                let sorted_cellules = all_data
-                    .cellules.clone()
-                    .into_iter()
-                    .filter(|cellule| cellule.nombre_de_crystal > 0)
-                    .collect::<Vec<_>>()
-                    .sort_immut();
-
-                self.update_target(&sorted_cellules);
-
-                let poid = 1;
-                let action = format!(
-                    "LINE {} {} {}",
-                    all_data.my_base_index,
-                    self.current_target.unwrap_or(1),
-                    poid
-                );
-
-                vec![
-                    action
-                ]
-            }
-        }
-
-        impl BasicIA {
-            fn update_target(&mut self, cellules_sorted: &Vec<Cellule>) {
-                let target_exist = cellules_sorted.iter()
-                    .find(|cellule| cellule.identifiant == self.current_target.unwrap_or(-1))
-                    .is_some();
-
-                if (!target_exist) {
-                    self.current_target = cellules_sorted.first().map(|cellule| cellule.identifiant)
-                }
-            }
-        }
-    }
-
     pub mod basic_ia_attrape_tout_crystaux {
         use crate::core::behaviors::CanBuildActions;
         use crate::helpers::CanSort;
@@ -104,7 +51,7 @@ mod behaviors {
         pub struct BasicIAAttrapeToutCrystaux;
 
         impl CanBuildActions for BasicIAAttrapeToutCrystaux {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+            fn build_actions(&self, all_data: &AllData) -> Vec<String> {
                 let sorted_cellules_by_crystal = all_data
                     .cellules.clone()
                     .into_iter()
@@ -145,7 +92,7 @@ mod behaviors {
         }
 
         impl CanBuildActions for BasicIARechercheNidProche {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+            fn build_actions(&self, all_data: &AllData) -> Vec<String> {
                 let nearest_eggs = self.path_finder.nearest_eggs(
                     all_data.my_base_index,
                     &all_data.cellules
@@ -180,222 +127,6 @@ mod behaviors {
         }
     }
 
-    /*
-    algo basic qui met une LINE entre la base allié et la meilleure cellule
-     */
-    pub mod basic_ia_with_eggs_first {
-        use crate::core::behaviors::CanBuildActions;
-        use crate::core::path_finders::CanGiveBestTarget;
-        use crate::helpers::CanSort;
-        use crate::models::{AllData, Cellule};
-
-        pub struct BasicIAWithEggsFirst {
-            pub current_target: Option<i32>
-        }
-
-        impl CanBuildActions for BasicIAWithEggsFirst {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
-
-                let sorted_cellules_by_crystal = all_data
-                    .cellules.clone()
-                    .into_iter()
-                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 2)
-                    .collect::<Vec<_>>()
-                    .sort_immut();
-
-                let sorted_cellules_by_eggs = all_data
-                    .cellules.clone()
-                    .into_iter()
-                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 1)
-                    .collect::<Vec<_>>()
-                    .sort_immut();
-
-                if all_data.tour_actuel < 7 {
-
-                    let best_eggs = sorted_cellules_by_eggs.first().unwrap();
-
-                    let action = format!(
-                        "LINE {} {} {}",
-                        all_data.my_base_index,
-                        best_eggs.identifiant,
-                        1
-                    );
-                    vec![action]
-                } else {
-                    sorted_cellules_by_crystal
-                        .into_iter()
-                        .map(|cellule| {
-                            let poid = 2;
-                            format!(
-                                "LINE {} {} {}",
-                                all_data.my_base_index,
-                                cellule.identifiant,
-                                poid
-                            )
-                        }).collect::<Vec<_>>()
-                }
-            }
-        }
-
-        impl BasicIAWithEggsFirst {
-            pub fn new() -> Self {
-                Self {
-                    current_target: None
-                }
-            }
-
-            fn update_target(&mut self, cellules_sorted: &Vec<Cellule>) {
-                let target_exist = cellules_sorted.iter()
-                    .find(|cellule| cellule.identifiant == self.current_target.unwrap_or(-1))
-                    .is_some();
-
-                if (!target_exist) {
-                    self.current_target = cellules_sorted.first().map(|cellule| cellule.identifiant)
-                }
-            }
-        }
-    }
-
-    pub mod basic_ia_with_path_finder {
-        use crate::core::behaviors::CanBuildActions;
-        use crate::core::path_finders::CanGiveBestTarget;
-        use crate::helpers::CanSort;
-        use crate::models::{AllData, Cellule};
-        use crate::path_finders::brutal::BrutalPathFinder;
-
-        pub struct BasicIAWithPathFinder {
-            pub current_target: Option<i32>,
-            path_finder: Box<dyn CanGiveBestTarget>
-        }
-
-        impl CanBuildActions for BasicIAWithPathFinder {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
-
-                let nearest_eggs = self.path_finder.nearest_eggs(
-                    all_data.my_base_index,
-                    &all_data.cellules
-                );
-                let nearest_egg_id = nearest_eggs.0;
-                let nearest_egg_dist = nearest_eggs.1;
-                let nearest_crystals = self.path_finder.nearest_crystals(
-                    all_data.my_base_index,
-                    &all_data.cellules
-                );
-                let nearest_crystal_id = nearest_crystals.0;
-                let nearest_crystal_dist = nearest_crystals.1;
-                let sorted_cellules_by_crystal = all_data
-                    .cellules.clone()
-                    .into_iter()
-                    .filter(|cellule| cellule.nombre_de_crystal > 0 && cellule.r#type == 2)
-                    .collect::<Vec<_>>()
-                    .sort_immut();
-
-                eprintln!("index nearest eggs {:?}", nearest_eggs);
-                eprintln!("index nearest crys {:?}", nearest_crystals);
-
-                let nombre_total_insect = all_data.get_my_total_insect();
-                let nombre_total_insect_enemy = all_data.get_enemy_total_insect();
-
-                if all_data.tour_actuel < 7 {
-
-                    let collect_eggs_action = if nearest_egg_id != -1 {
-                        format!(
-                            "LINE {} {} {}",
-                            all_data.my_base_index,
-                            nearest_egg_id,
-                            10
-                        )
-                    } else {
-                        "WAIT".to_string()
-                    };
-
-                    // let collect_crystal_action = if nearest_crystal_id != -1 {
-                    //     format!(
-                    //         "LINE {} {} {}",
-                    //         all_data.my_base_index,
-                    //         nearest_crystal_id,
-                    //         1
-                    //     )
-                    // } else {
-                    //     "WAIT".to_string()
-                    // };
-
-                    vec![
-                        collect_eggs_action,
-                        // collect_crystal_action
-                    ]
-                } else if all_data.tour_actuel < 12 {
-                    let collect_eggs_action = if nearest_egg_id != -1 {
-                        format!(
-                            "LINE {} {} {}",
-                            all_data.my_base_index,
-                            nearest_egg_id,
-                            4
-                        )
-                    } else {
-                        "WAIT".to_string()
-                    };
-
-                    let collect_crystal_action = if nearest_crystal_id != -1 {
-                        format!(
-                            "LINE {} {} {}",
-                            all_data.my_base_index,
-                            nearest_crystal_id,
-                            10
-                        )
-                    } else {
-                        "WAIT".to_string()
-                    };
-
-                    vec![
-                        collect_eggs_action,
-                        collect_crystal_action
-                    ]
-                } else {
-                    let collect_crystal_action = if nearest_crystal_id != -1 {
-                        format!(
-                            "LINE {} {} {}",
-                            all_data.my_base_index,
-                            nearest_crystal_id,
-                            10
-                        )
-                    } else {
-                        "WAIT".to_string()
-                    };
-
-                    let others = sorted_cellules_by_crystal
-                        .into_iter()
-                        .map(|cellule| {
-                            format!(
-                                "LINE {} {} {}",
-                                all_data.my_base_index,
-                                cellule.identifiant,
-                                2
-                            )
-                        })
-                        .collect::<Vec<_>>();
-
-                    vec![
-                        collect_crystal_action
-                    ]
-                        .iter()
-                        .chain(others.iter())
-                        .map(|ref_command| ref_command.clone())
-                        .collect::<Vec<_>>()
-                }
-            }
-        }
-
-        impl BasicIAWithPathFinder {
-            pub fn new() -> Self {
-                Self {
-                    current_target: None,
-                    path_finder: Box::new(BrutalPathFinder {})
-                }
-            }
-        }
-    }
-
     pub mod basic_ia_with_bronze {
         use crate::behaviors::basic_ia_attrape_tout_crystaux::BasicIAAttrapeToutCrystaux;
         use crate::behaviors::basic_ia_recherche_nid_proche::BasicIARechercheNidProche;
@@ -412,7 +143,7 @@ mod behaviors {
         }
 
         impl CanBuildActions for BasicIABronze {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String> {
+            fn build_actions(&self, all_data: &AllData) -> Vec<String> {
                 let nombre_total_insect = all_data.get_my_total_insect();
 
                 if all_data.get_nombre_nid_detruit() < 1 && nombre_total_insect < 30 {
@@ -521,7 +252,6 @@ mod path_finders {
                 }
             }
         }
-
     }
 }
 
@@ -530,9 +260,9 @@ mod core {
         use crate::models::AllData;
 
         pub trait CanBuildActions {
-            fn build_actions(&mut self, all_data: &AllData) -> Vec<String>;
+            fn build_actions(&self, all_data: &AllData) -> Vec<String>;
 
-            fn execute_actions(&mut self, all_data: &AllData) {
+            fn execute_actions(&self, all_data: &AllData) {
                 let actions = self.build_actions(all_data).join(";");
                 println!("{}", actions);
             }
